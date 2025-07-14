@@ -23,4 +23,19 @@ macro_rules! try_io {
     };
 }
 
+/// Checks if a value is null, if it is then sets errno to EINVAL and then returns EOF
+macro_rules! die {
+    ($e:expr) => {
+        if $e.is_null() {
+            #[allow(unused_unsafe)]
+            unsafe {
+                crate::errno::ERRNO = rustix::io::Errno::INVAL.raw_os_error()
+            };
+
+            return EOF;
+        }
+    };
+}
+
+pub(crate) use die;
 pub(crate) use try_io;

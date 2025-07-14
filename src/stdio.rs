@@ -1,4 +1,4 @@
-use crate::errno::try_io;
+use crate::errno::{die, try_io};
 use core::ffi::{CStr, VaList, c_char, c_double, c_int, c_uint};
 use rustix::{
     fd::{AsFd, BorrowedFd, RawFd},
@@ -71,9 +71,7 @@ at least some very basic buffer overflows vulnerabilities
 
 */
 unsafe fn printf_internal<Fd: AsFd>(fd: Fd, format: *const c_char, mut args: VaList) -> c_int {
-    if format.is_null() {
-        return EOF;
-    }
+    die!(format);
 
     let str = unsafe { CStr::from_ptr(format) }.to_bytes();
 
@@ -145,9 +143,7 @@ fn write_all<Fd: AsFd>(fd: Fd, mut buf: &[u8]) -> io::Result<usize> {
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn puts(s: *const c_char) -> c_int {
-    if s.is_null() {
-        return EOF;
-    }
+    die!(s);
 
     let buf = unsafe { CStr::from_ptr(s) }.to_bytes();
 
@@ -161,8 +157,7 @@ pub unsafe extern "C" fn puts(s: *const c_char) -> c_int {
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn fileno(stream: *mut FILE) -> c_int {
-    if stream.is_null() {
-        return EOF;
-    }
+    die!(stream);
+
     unsafe { (*stream).fd }
 }
