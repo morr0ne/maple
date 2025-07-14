@@ -2,6 +2,7 @@
 #![allow(internal_features)]
 #![feature(core_intrinsics)]
 #![feature(c_variadic)]
+#![feature(thread_local)]
 
 use core::{
     arch::naked_asm,
@@ -17,6 +18,14 @@ use rustix::{
 #[panic_handler]
 fn panic(_panic: &core::panic::PanicInfo<'_>) -> ! {
     core::intrinsics::abort()
+}
+
+#[thread_local]
+static mut ERRNO: c_int = 0;
+
+#[unsafe(no_mangle)]
+extern "C" fn __errno_location() -> *mut c_int {
+    &raw mut ERRNO
 }
 
 unsafe extern "C" {
@@ -77,6 +86,21 @@ pub unsafe extern "C" fn vfprintf(stream: *mut FILE, format: *const c_char, args
     unsafe { printf_internal(&*stream, format, args) }
 }
 
+macro_rules! try_io {
+    ($e:expr) => {
+        match $e {
+            Ok(res) => res,
+            Err(err) => {
+                #[allow(unused_unsafe)]
+                unsafe {
+                    ERRNO = err.raw_os_error()
+                };
+                return EOF;
+            }
+        }
+    };
+}
+
 /*
 TODO
 
@@ -99,6 +123,8 @@ unsafe fn printf_internal<Fd: AsFd>(fd: Fd, format: *const c_char, mut args: VaL
 
     let mut number_buffer = itoa::Buffer::new();
     let mut float_buffer = ryu::Buffer::new();
+
+    let mut written = 0usize;
 
     'spec_loop: while let Some(byte) = bytes_iter.next() {
         'spec_blk: {
@@ -127,17 +153,17 @@ unsafe fn printf_internal<Fd: AsFd>(fd: Fd, format: *const c_char, mut args: VaL
                     }
                 };
 
-                write_all(&fd, buf);
+                written += try_io!(write_all(&fd, buf));
 
                 bytes_iter.next();
                 continue 'spec_loop;
             }
         }
 
-        write_all(&fd, &[*byte]);
+        written += try_io!(write_all(&fd, &[*byte]));
     }
 
-    EOF
+    written as _
 }
 
 // FIXME: return a result and then have a shortcircut function
@@ -159,15 +185,6 @@ fn write_all<Fd: AsFd>(fd: Fd, mut buf: &[u8]) -> io::Result<usize> {
     Ok(written)
 }
 
-macro_rules! try_io {
-    ($e:expr) => {
-        match $e {
-            Ok(res) => res,
-            Err(err) => return err.raw_os_error(),
-        }
-    };
-}
-
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn puts(s: *const c_char) -> c_int {
     if s.is_null() {
@@ -178,7 +195,7 @@ pub unsafe extern "C" fn puts(s: *const c_char) -> c_int {
 
     unsafe {
         try_io!(write_all(&*stdout, buf));
-        try_io!(write_all(&*stdout, b"\n")); // TODO: is it right to return errno?
+        try_io!(write_all(&*stdout, b"\n"));
     }
 
     0
