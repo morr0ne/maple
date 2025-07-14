@@ -5,12 +5,12 @@
 
 use core::{
     arch::naked_asm,
-    ffi::{CStr, c_char, c_double, c_int, c_uint},
+    ffi::{CStr, VaList, c_char, c_double, c_int, c_uint},
     ptr::null_mut,
 };
 
 use rustix::{
-    fd::AsFd,
+    fd::{AsFd, BorrowedFd, RawFd},
     io::{Errno, write},
     stdio::stdout,
 };
@@ -26,6 +26,36 @@ unsafe extern "C" {
 
 pub const EOF: c_int = -1;
 
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn printf(format: *const c_char, mut args: ...) -> c_int {
+    unsafe { printf_internal(stdout(), format, args.as_va_list()) }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vprintf(format: *const c_char, args: VaList) -> c_int {
+    unsafe { printf_internal(stdout(), format, args) }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn fprintf(stream: *mut FILE, format: *const c_char, mut args: ...) -> c_int {
+    unsafe { printf_internal(&*stream, format, args.as_va_list()) }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vfprintf(stream: *mut FILE, format: *const c_char, args: VaList) -> c_int {
+    unsafe { printf_internal(&*stream, format, args) }
+}
+
+pub struct FILE {
+    fd: RawFd,
+}
+
+impl AsFd for FILE {
+    fn as_fd(&self) -> BorrowedFd<'_> {
+        unsafe { BorrowedFd::borrow_raw(self.fd) }
+    }
+}
+
 /*
 TODO
 
@@ -37,8 +67,7 @@ which we dont yet have, and also some proper memory management to mitigate
 at least some very basic buffer overflows vulnerabilities
 
 */
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn printf(format: *const c_char, mut args: ...) -> c_int {
+unsafe fn printf_internal<Fd: AsFd>(fd: Fd, format: *const c_char, mut args: VaList) -> c_int {
     if format.is_null() {
         return EOF;
     }
@@ -47,7 +76,6 @@ pub unsafe extern "C" fn printf(format: *const c_char, mut args: ...) -> c_int {
 
     let mut bytes_iter = str.into_iter().peekable();
 
-    let stdout = unsafe { stdout() };
     let mut number_buffer = itoa::Buffer::new();
     let mut float_buffer = ryu::Buffer::new();
 
@@ -78,14 +106,14 @@ pub unsafe extern "C" fn printf(format: *const c_char, mut args: ...) -> c_int {
                     }
                 };
 
-                write_all(stdout, buf);
+                write_all(&fd, buf);
 
                 bytes_iter.next();
                 continue 'spec_loop;
             }
         }
 
-        write_all(stdout, &[*byte]);
+        write_all(&fd, &[*byte]);
     }
 
     EOF
