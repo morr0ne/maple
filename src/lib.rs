@@ -5,6 +5,7 @@
 #![feature(thread_local)]
 
 pub mod errno;
+pub mod mem;
 pub mod stdio;
 
 use core::{
