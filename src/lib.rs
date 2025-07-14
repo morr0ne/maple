@@ -24,23 +24,46 @@ unsafe extern "C" {
     fn main(argc: c_int, argv: *mut *mut c_char, envp: *mut *mut c_char) -> c_int;
 }
 
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn printf(format: *const c_char, mut args: ...) -> c_int {
-    todo!()
-}
-
 pub const EOF: c_int = -1;
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn puts(s: *const c_char) -> c_int {
-    if s.is_null() {
+pub unsafe extern "C" fn printf(format: *const c_char, mut args: ...) -> c_int {
+    if format.is_null() {
         return EOF;
     }
 
+    let str = unsafe { CStr::from_ptr(format) }.to_bytes();
+
+    let mut bytes_iter = str.into_iter();
+
     let stdout = unsafe { stdout() };
+    let mut number_buffer = itoa::Buffer::new();
 
-    let mut buf = unsafe { CStr::from_ptr(s) }.to_bytes();
+    while let Some(byte) = bytes_iter.next() {
+        if *byte == b'%'
+            && let Some(spec) = bytes_iter.next()
+        {
+            match *spec {
+                b'd' => {
+                    let arg: c_int = unsafe { args.arg() };
+                    let str = number_buffer.format(arg);
+                    write_all(stdout, str.as_bytes());
+                }
+                _ => {
+                    write_all(stdout, &[*spec]);
+                }
+            }
 
+            continue;
+        }
+
+        write_all(stdout, &[*byte]);
+    }
+
+    EOF
+}
+
+// FIXME: return a result and then have a shortcircut function
 fn write_all<Fd: AsFd>(fd: Fd, mut buf: &[u8]) -> c_int {
     while !buf.is_empty() {
         match write(&fd, buf) {
