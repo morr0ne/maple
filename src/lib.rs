@@ -11,7 +11,7 @@ use core::{
 
 use rustix::{
     fd::{AsFd, BorrowedFd, RawFd},
-    io::{Errno, write},
+    io::{self, Errno, write},
 };
 
 #[panic_handler]
@@ -141,19 +141,31 @@ unsafe fn printf_internal<Fd: AsFd>(fd: Fd, format: *const c_char, mut args: VaL
 }
 
 // FIXME: return a result and then have a shortcircut function
-fn write_all<Fd: AsFd>(fd: Fd, mut buf: &[u8]) -> c_int {
+fn write_all<Fd: AsFd>(fd: Fd, mut buf: &[u8]) -> io::Result<usize> {
+    let mut written = 0usize;
+
     while !buf.is_empty() {
         match write(&fd, buf) {
-            Ok(0) => {
-                return EOF;
+            Ok(0) => return Err(Errno::IO),
+            Ok(n) => {
+                buf = &buf[n..];
+                written += n;
             }
-            Ok(n) => buf = &buf[n..],
             Err(Errno::INTR) => {}
-            Err(e) => return e.raw_os_error(),
+            Err(e) => return Err(e),
         }
     }
 
-    0
+    Ok(written)
+}
+
+macro_rules! try_io {
+    ($e:expr) => {
+        match $e {
+            Ok(res) => res,
+            Err(err) => return err.raw_os_error(),
+        }
+    };
 }
 
 #[unsafe(no_mangle)]
@@ -165,9 +177,11 @@ pub unsafe extern "C" fn puts(s: *const c_char) -> c_int {
     let buf = unsafe { CStr::from_ptr(s) }.to_bytes();
 
     unsafe {
-        write_all(&*stdout, buf);
-        write_all(&*stdout, b"\n")
+        try_io!(write_all(&*stdout, buf));
+        try_io!(write_all(&*stdout, b"\n")); // TODO: is it right to return errno?
     }
+
+    0
 }
 
 #[unsafe(no_mangle)]
