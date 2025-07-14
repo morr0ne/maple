@@ -12,7 +12,6 @@ use core::{
 use rustix::{
     fd::{AsFd, BorrowedFd, RawFd},
     io::{Errno, write},
-    stdio::stdout,
 };
 
 #[panic_handler]
@@ -26,14 +25,46 @@ unsafe extern "C" {
 
 pub const EOF: c_int = -1;
 
+pub struct FILE {
+    fd: RawFd,
+}
+
+impl AsFd for FILE {
+    fn as_fd(&self) -> BorrowedFd<'_> {
+        unsafe { BorrowedFd::borrow_raw(self.fd) }
+    }
+}
+
+// POSIX standard file descriptor constants
+pub const STDIN_FILENO: c_int = rustix::stdio::raw_stdin();
+pub const STDOUT_FILENO: c_int = rustix::stdio::raw_stdout();
+pub const STDERR_FILENO: c_int = rustix::stdio::raw_stderr();
+
+// Static instances for standard streams
+static mut STDIN_IMPL: FILE = FILE { fd: STDIN_FILENO };
+static mut STDOUT_IMPL: FILE = FILE { fd: STDOUT_FILENO };
+static mut STDERR_IMPL: FILE = FILE { fd: STDERR_FILENO };
+
+#[allow(non_upper_case_globals)]
+#[unsafe(no_mangle)]
+pub static mut stdin: *mut FILE = &raw mut STDIN_IMPL;
+
+#[allow(non_upper_case_globals)]
+#[unsafe(no_mangle)]
+pub static mut stdout: *mut FILE = &raw mut STDOUT_IMPL;
+
+#[allow(non_upper_case_globals)]
+#[unsafe(no_mangle)]
+pub static mut stderr: *mut FILE = &raw mut STDERR_IMPL;
+
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn printf(format: *const c_char, mut args: ...) -> c_int {
-    unsafe { printf_internal(stdout(), format, args.as_va_list()) }
+    unsafe { printf_internal(&*stdout, format, args.as_va_list()) }
 }
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn vprintf(format: *const c_char, args: VaList) -> c_int {
-    unsafe { printf_internal(stdout(), format, args) }
+    unsafe { printf_internal(&*stdout, format, args) }
 }
 
 #[unsafe(no_mangle)]
@@ -44,16 +75,6 @@ pub unsafe extern "C" fn fprintf(stream: *mut FILE, format: *const c_char, mut a
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn vfprintf(stream: *mut FILE, format: *const c_char, args: VaList) -> c_int {
     unsafe { printf_internal(&*stream, format, args) }
-}
-
-pub struct FILE {
-    fd: RawFd,
-}
-
-impl AsFd for FILE {
-    fn as_fd(&self) -> BorrowedFd<'_> {
-        unsafe { BorrowedFd::borrow_raw(self.fd) }
-    }
 }
 
 /*
@@ -141,12 +162,20 @@ pub unsafe extern "C" fn puts(s: *const c_char) -> c_int {
         return EOF;
     }
 
-    let stdout = unsafe { stdout() };
-
     let buf = unsafe { CStr::from_ptr(s) }.to_bytes();
 
-    write_all(stdout, buf);
-    write_all(stdout, b"\n")
+    unsafe {
+        write_all(&*stdout, buf);
+        write_all(&*stdout, b"\n")
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn fileno(stream: *mut FILE) -> c_int {
+    if stream.is_null() {
+        return EOF;
+    }
+    unsafe { (*stream).fd }
 }
 
 #[unsafe(naked)]
