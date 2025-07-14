@@ -10,6 +10,7 @@ use core::{
 };
 
 use rustix::{
+    fd::AsFd,
     io::{Errno, write},
     stdio::stdout,
 };
@@ -40,8 +41,9 @@ pub unsafe extern "C" fn puts(s: *const c_char) -> c_int {
 
     let mut buf = unsafe { CStr::from_ptr(s) }.to_bytes();
 
+fn write_all<Fd: AsFd>(fd: Fd, mut buf: &[u8]) -> c_int {
     while !buf.is_empty() {
-        match write(stdout, buf) {
+        match write(&fd, buf) {
             Ok(0) => {
                 return EOF;
             }
@@ -51,11 +53,21 @@ pub unsafe extern "C" fn puts(s: *const c_char) -> c_int {
         }
     }
 
-    match write(stdout, b"\n") {
-        Ok(0) => EOF,
-        Ok(_) => 0,
-        Err(e) => e.raw_os_error(),
+    0
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn puts(s: *const c_char) -> c_int {
+    if s.is_null() {
+        return EOF;
     }
+
+    let stdout = unsafe { stdout() };
+
+    let buf = unsafe { CStr::from_ptr(s) }.to_bytes();
+
+    write_all(stdout, buf);
+    write_all(stdout, b"\n")
 }
 
 #[unsafe(naked)]
