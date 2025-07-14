@@ -5,7 +5,7 @@
 
 use core::{
     arch::naked_asm,
-    ffi::{CStr, c_char, c_int},
+    ffi::{CStr, c_char, c_double, c_int, c_uint},
     ptr::null_mut,
 };
 
@@ -26,6 +26,17 @@ unsafe extern "C" {
 
 pub const EOF: c_int = -1;
 
+/*
+TODO
+
+While the implementation is meant to be correct it's very inneficient
+since it's doing a lot of system calls
+
+Ideally we want to buffer the input but that involves having an allocator,
+which we dont yet have, and also some proper memory management to mitigate
+at least some very basic buffer overflows vulnerabilities
+
+*/
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn printf(format: *const c_char, mut args: ...) -> c_int {
     if format.is_null() {
@@ -34,27 +45,44 @@ pub unsafe extern "C" fn printf(format: *const c_char, mut args: ...) -> c_int {
 
     let str = unsafe { CStr::from_ptr(format) }.to_bytes();
 
-    let mut bytes_iter = str.into_iter();
+    let mut bytes_iter = str.into_iter().peekable();
 
     let stdout = unsafe { stdout() };
     let mut number_buffer = itoa::Buffer::new();
+    let mut float_buffer = ryu::Buffer::new();
 
-    while let Some(byte) = bytes_iter.next() {
-        if *byte == b'%'
-            && let Some(spec) = bytes_iter.next()
-        {
-            match *spec {
-                b'd' => {
-                    let arg: c_int = unsafe { args.arg() };
-                    let str = number_buffer.format(arg);
-                    write_all(stdout, str.as_bytes());
-                }
-                _ => {
-                    write_all(stdout, &[*spec]);
-                }
+    'spec_loop: while let Some(byte) = bytes_iter.next() {
+        'spec_blk: {
+            if *byte == b'%'
+                && let Some(spec) = bytes_iter.peek()
+            {
+                let buf = match *spec {
+                    b'd' | b'i' => {
+                        let arg: c_int = unsafe { args.arg() };
+                        number_buffer.format(arg).as_bytes()
+                    }
+                    b'u' => {
+                        let arg: c_uint = unsafe { args.arg() };
+                        number_buffer.format(arg).as_bytes()
+                    }
+                    b's' => {
+                        let arg: *const c_char = unsafe { args.arg() };
+                        unsafe { CStr::from_ptr(arg) }.to_bytes()
+                    }
+                    b'f' => {
+                        let arg: c_double = unsafe { args.arg() };
+                        float_buffer.format(arg).as_bytes()
+                    }
+                    _ => {
+                        break 'spec_blk;
+                    }
+                };
+
+                write_all(stdout, buf);
+
+                bytes_iter.next();
+                continue 'spec_loop;
             }
-
-            continue;
         }
 
         write_all(stdout, &[*byte]);
