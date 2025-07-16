@@ -1,5 +1,5 @@
 [workspace]
-members = ["libc"]
+members = ["libc", "startup"]
 resolver = "3"
 
 [profile.release]

@@ -1,0 +1,13 @@
+[package]
+name = "startup"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "startup"
+crate-type = ["cdylib", "staticlib", "rlib"]
+test = false
+bench = false
+
+[dependencies]
+rustix = { version = "1.0.8", default-features = false, features = ["runtime"] }
