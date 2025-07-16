@@ -1,27 +1,8 @@
-[package]
-name = "maple"
-version = "0.1.0"
-edition = "2024"
+[workspace]
+members = ["libc"]
+resolver = "3"
 
 [profile.release]
 lto = true
 codegen-units = 1
 strip = true
-
-[lib]
-name = "c"
-crate-type = ["cdylib", "staticlib", "rlib"]
-test = false
-bench = false
-
-[dependencies]
-builtins = { package = "compiler_builtins", version = "0.1.160", default-features = false, features = [
-    "mem",
-    "mangled-names",
-] }
-itoa = "1.0.15"
-rustix = { version = "1.0.8", default-features = false, features = [
-    "runtime",
-    "stdio",
-] }
-ryu = "1.0.20"
