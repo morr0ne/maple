@@ -9,7 +9,7 @@ codegen-units = 1
 strip = true
 
 [lib]
-name = "maple"
+name = "c"
 crate-type = ["cdylib", "staticlib", "rlib"]
 test = false
 bench = false
@@ -20,7 +20,7 @@ builtins = { package = "compiler_builtins", version = "0.1.160", default-feature
     "mangled-names",
 ] }
 itoa = "1.0.15"
-rustix = { version = "1.0.7", default-features = false, features = [
+rustix = { version = "1.0.8", default-features = false, features = [
     "runtime",
     "stdio",
 ] }
