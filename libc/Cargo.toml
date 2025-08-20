@@ -15,8 +15,5 @@ builtins = { package = "compiler_builtins", version = "0.1.160", default-feature
     "mangled-names",
 ] }
 itoa = "1.0.15"
-rustix = { version = "1.0.8", default-features = false, features = [
-    "runtime",
-    "stdio",
-] }
 ryu = "1.0.20"
+xenia = "0.0.2"

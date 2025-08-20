@@ -1,9 +1,12 @@
+use xenia::{
+    Errno,
+    fd::{AsFd, BorrowedFd, RawFd},
+    stdio::{STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO},
+    write,
+};
+
 use crate::errno::{die, try_io};
 use core::ffi::{CStr, VaList, c_char, c_double, c_int, c_uint};
-use rustix::{
-    fd::{AsFd, BorrowedFd, RawFd},
-    io::{self, Errno, write},
-};
 
 pub const EOF: c_int = -1;
 
@@ -16,11 +19,6 @@ impl AsFd for FILE {
         unsafe { BorrowedFd::borrow_raw(self.fd) }
     }
 }
-
-// POSIX standard file descriptor constants
-pub const STDIN_FILENO: c_int = rustix::stdio::raw_stdin();
-pub const STDOUT_FILENO: c_int = rustix::stdio::raw_stdout();
-pub const STDERR_FILENO: c_int = rustix::stdio::raw_stderr();
 
 // Static instances for standard streams
 static mut STDIN_IMPL: FILE = FILE { fd: STDIN_FILENO };
@@ -123,7 +121,7 @@ unsafe fn printf_internal<Fd: AsFd>(fd: Fd, format: *const c_char, mut args: VaL
 }
 
 // FIXME: return a result and then have a shortcircut function
-fn write_all<Fd: AsFd>(fd: Fd, mut buf: &[u8]) -> io::Result<usize> {
+fn write_all<Fd: AsFd>(fd: Fd, mut buf: &[u8]) -> xenia::Result<usize> {
     let mut written = 0usize;
 
     while !buf.is_empty() {

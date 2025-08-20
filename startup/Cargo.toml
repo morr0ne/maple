@@ -10,4 +10,4 @@ test = false
 bench = false
 
 [dependencies]
-rustix = { version = "1.0.8", default-features = false, features = ["runtime"] }
+xenia = "0.0.2"

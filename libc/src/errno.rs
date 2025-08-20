@@ -29,7 +29,7 @@ macro_rules! die {
         if $e.is_null() {
             #[allow(unused_unsafe)]
             unsafe {
-                crate::errno::ERRNO = rustix::io::Errno::INVAL.raw_os_error()
+                crate::errno::ERRNO = xenia::Errno::INVAL.raw_os_error()
             };
 
             return EOF;

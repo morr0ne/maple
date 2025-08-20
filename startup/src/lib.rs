@@ -7,8 +7,6 @@ use core::{
     ptr::null_mut,
 };
 
-use rustix;
-
 #[panic_handler]
 #[linkage = "weak"] // Nothing can panic here but rust won't compile without defining the symbol
 fn panic(_panic: &core::panic::PanicInfo<'_>) -> ! {
@@ -23,7 +21,7 @@ unsafe extern "C" {
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn _start() -> ! {
     fn entry(_mem: *mut usize) -> ! {
-        unsafe { rustix::runtime::exit_group(main(0, null_mut(), null_mut())) }
+        unsafe { xenia::exit_group(main(0, null_mut(), null_mut())) }
     }
 
     naked_asm!(
