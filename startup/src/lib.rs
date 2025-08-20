@@ -1,8 +1,4 @@
 #![no_std]
-#![allow(internal_features)]
-#![feature(core_intrinsics)]
-#![feature(c_variadic)]
-#![feature(thread_local)]
 #![feature(linkage)]
 
 use core::{
@@ -16,7 +12,7 @@ use rustix;
 #[panic_handler]
 #[linkage = "weak"] // Nothing can panic here but rust won't compile without defining the symbol
 fn panic(_panic: &core::panic::PanicInfo<'_>) -> ! {
-    core::intrinsics::abort()
+    unsafe { core::hint::unreachable_unchecked() }
 }
 
 unsafe extern "C" {
