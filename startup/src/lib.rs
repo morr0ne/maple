@@ -17,8 +17,13 @@ unsafe extern "C" {
     fn main(argc: c_int, argv: *mut *mut c_char, envp: *mut *mut c_char) -> c_int;
 }
 
-fn entry(_mem: *mut usize) -> ! {
-    unsafe { xenia::exit_group(main(0, null_mut(), null_mut())) }
+fn entry(stack: *mut usize) -> ! {
+    unsafe {
+        let argc = *stack as c_int;
+        let argv: *mut *mut c_char = stack.offset(1).cast();
+
+        xenia::exit_group(main(argc, argv, null_mut()))
+    }
 }
 
 #[unsafe(naked)]
