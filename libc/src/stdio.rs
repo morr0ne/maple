@@ -159,3 +159,12 @@ pub unsafe extern "C" fn fileno(stream: *mut FILE) -> c_int {
 
     unsafe { (*stream).fd }
 }
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn putchar(c: c_int) -> c_int {
+    unsafe {
+        try_io!(write_all(&*stdout, &[c as u8]));
+    }
+
+    0
+}
