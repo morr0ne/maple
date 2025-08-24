@@ -6,7 +6,7 @@ use xenia::{
 };
 
 use crate::errno::{die, try_io};
-use core::ffi::{CStr, VaList, c_char, c_double, c_int, c_uint};
+use core::ffi::{CStr, VaList as va_list, c_char, c_double, c_int, c_uint};
 
 pub const EOF: c_int = -1;
 
@@ -43,7 +43,7 @@ pub unsafe extern "C" fn printf(format: *const c_char, mut args: ...) -> c_int {
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn vprintf(format: *const c_char, args: VaList) -> c_int {
+pub unsafe extern "C" fn vprintf(format: *const c_char, args: va_list) -> c_int {
     unsafe { printf_internal(&*stdout, format, args) }
 }
 
@@ -53,7 +53,11 @@ pub unsafe extern "C" fn fprintf(stream: *mut FILE, format: *const c_char, mut a
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn vfprintf(stream: *mut FILE, format: *const c_char, args: VaList) -> c_int {
+pub unsafe extern "C" fn vfprintf(
+    stream: *mut FILE,
+    format: *const c_char,
+    args: va_list,
+) -> c_int {
     unsafe { printf_internal(&*stream, format, args) }
 }
 
@@ -68,7 +72,7 @@ which we dont yet have, and also some proper memory management to mitigate
 at least some very basic buffer overflows vulnerabilities
 
 */
-unsafe fn printf_internal<Fd: AsFd>(fd: Fd, format: *const c_char, mut args: VaList) -> c_int {
+unsafe fn printf_internal<Fd: AsFd>(fd: Fd, format: *const c_char, mut args: va_list) -> c_int {
     die!(format);
 
     let str = unsafe { CStr::from_ptr(format) }.to_bytes();
