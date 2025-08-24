@@ -1,8 +1,15 @@
 [workspace]
-members = ["libc", "startup"]
+members = ["libc", "linker", "startup"]
 resolver = "3"
 
 [profile.release]
 lto = true
 codegen-units = 1
 strip = true
+
+[profile.bloat]
+inherits = "release"
+strip = false
+
+[patch.crates-io]
+# xenia = { path = "../xenia" }

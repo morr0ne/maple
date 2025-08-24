@@ -1,0 +1,12 @@
+[package]
+name = "linker"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "linker"
+test = false
+bench = false
+
+[dependencies]
+startup = { path = "../startup" }
